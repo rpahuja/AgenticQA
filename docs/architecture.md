@@ -205,16 +205,15 @@ repository root) whose components live in **separate folders**:
 | Folder | Package | Responsibility |
 |---|---|---|
 | `core/` | `com.agenticqa.core.*` | shared kernel: configuration, LLM client (OpenAI-compatible), document model, model routing |
-| `rag/` | `com.agenticqa.rag.*` | retrieval (your work area): `Chunker` cuts files into pieces, `Retriever` picks the most relevant pieces within a token budget |
-| `orchestrator/` | `com.agenticqa.orchestrator.*` | the flow: discover repo layout -> collect existing tests -> retrieve -> route -> one LLM call -> write files |
+| `rag/` | `com.agenticqa.rag.*` | retrieval (your work area): one entry point `RagEngine.buildContext(...)` — the orchestrator calls only this; the internals are yours to design |
+| `orchestrator/` | `com.agenticqa.orchestrator.*` | the flow: discover repo layout -> ask RagEngine for context -> route -> one LLM call -> write files |
 | `config/agenticqa.properties` | - | providers, models, routing rules, RAG settings (gitignored: holds API keys) |
 
 ```mermaid
 flowchart LR
     Q["QA: @agenticQA --repo <path> <prompt>"] --> P["participant spawns the jar"]
     P --> S["RepoScanner: pom.xml + Maven layout"]
-    S --> C["collect .feature files + test classes"]
-    R --> M["Retriever: score pieces, pick top-k"]
+    S --> R["RagEngine: collect -> cut -> rank -> budget"]
     R --> M["ModelRouter: provider + model per task"]
     M --> L["LlmClient: one chat-completion call"]
     L --> G["Generator: FEATURE / STEPS / RUNNER markers -> files in the repo"]
@@ -225,8 +224,9 @@ Key properties:
 - **Auto-discovery** — the orchestrator reads `pom.xml` and the standard Maven
   layout (`src/test/java`, `src/test/resources/features`, existing stepdefs /
   runner packages). The user never tells the AI where things go.
-- **RAG** — the context builder lives in `rag/` (`Chunker`, `Retriever`) and
-  `orchestrator/SurfaceExtractor`. The pipeline calls fixed signatures, so the
+- **RAG** — the context builder is one entry point,
+  `rag/RagEngine.buildContext(...)`, plus `orchestrator/SurfaceExtractor` for
+  the repository fact sheet. The pipeline calls fixed signatures, so the
   implementation can be developed independently.
 - **Retrieval costs zero tokens** — the retrieval implementation runs in code;
   only the pieces that fit the token budget reach the prompt. The orchestrator

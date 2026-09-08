@@ -34,13 +34,13 @@ Useful flags: `--dry-run` (scan + retrieval, no AI call, no tokens),
 
 | Package | What you build here |
 |---|---|
-| `rag/` | `Chunker` (TODO Day 1) and `Retriever` (TODO Days 2–5) |
-| `orchestrator/SurfaceExtractor.java` | the repository "fact sheet" (TODO Day 6) |
-| `orchestrator/Generator.java` | the model prompt + file writing (improve on Day 7) |
+| `rag/RagEngine.java` | the single RAG entry point the orchestrator calls (stub - your work) |
+| `orchestrator/SurfaceExtractor.java` | the repository "fact sheet" (stub - your work) |
+| `orchestrator/Generator.java` | the model prompt + file writing |
 
 Everything else (`core/`, `orchestrator/` plumbing, the extension) is shared
-infrastructure — the method signatures above are the contract the pipeline
-calls into. Keep them unchanged.
+infrastructure — `RagEngine.buildContext(...)` and `SurfaceExtractor.extract(...)`
+are the contracts the pipeline calls into. Keep their signatures unchanged.
 
 ## Configuration
 

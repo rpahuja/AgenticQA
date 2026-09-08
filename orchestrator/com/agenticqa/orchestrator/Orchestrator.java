@@ -4,22 +4,17 @@ import com.agenticqa.core.config.AgenticqaConfig;
 import com.agenticqa.core.llm.LlmClient;
 import com.agenticqa.core.llm.ModelRouter;
 import com.agenticqa.core.model.SourceFile;
-import com.agenticqa.rag.Chunker;
-import com.agenticqa.rag.Retriever;
+import com.agenticqa.rag.RagEngine;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * The orchestration flow behind @agenticQA:
  *
  *   discover repository layout
- *     -> collect existing test artifacts
- *     -> retrieve the relevant ones (rag component, zero tokens)
+ *     -> ask the RAG for the focused context (single entry point, zero tokens)
  *     -> route the task to a provider + model (routing rules)
  *     -> one LLM call with the focused context
  *     -> write the generated tests into the discovered folders
@@ -52,22 +47,22 @@ public class Orchestrator {
 
         List<SourceFile> context = null;
         if (config.ragEnabled) {
-            // Knowledge base: every existing test artifact, chunked into
-            // scenarios / methods.
-            List<SourceFile> files = collectTestArtifacts(layout);
-            List<SourceFile> chunks = Chunker.chunk(files);
-            int corpusTokens = totalTokens(files);
+            // Single RAG entry point: the orchestrator asks for the context
+            // and never touches the RAG internals. The retrieval itself costs
+            // zero LLM tokens - only the pieces that fit the budget reach the
+            // prompt.
+            RagEngine.RagContext rag = RagEngine.buildContext(
+                layout.featureDir, layout.testSourceRoot, prompt,
+                config.topK, config.contextTokenBudget);
+            context = rag.chunks;
 
-            // Retrieval runs in code - zero LLM tokens. Only the chunks that
-            // fit the budget reach the prompt.
-            context = Retriever.retrieve(chunks, prompt, config.topK, config.contextTokenBudget);
-            int contextTokens = totalTokens(context);
-
-            log("RAG: knowledge base = " + files.size() + " files -> " + chunks.size()
-                + " chunks (~" + corpusTokens + " tokens).");
-            log("RAG: retrieved " + context.size() + " chunks (~" + contextTokens + " tokens) = "
-                + pct(contextTokens, corpusTokens) + "% of the knowledge base - "
-                + pct(corpusTokens - contextTokens, corpusTokens) + "% NOT injected into the prompt.");
+            log("RAG: knowledge base = " + rag.corpusFiles + " files -> " + rag.corpusChunks
+                + " chunks (~" + rag.corpusTokens + " tokens).");
+            log("RAG: retrieved " + rag.chunks.size() + " chunks (~" + rag.injectedTokens
+                + " tokens) = " + pct(rag.injectedTokens, rag.corpusTokens)
+                + "% of the knowledge base - "
+                + pct(rag.corpusTokens - rag.injectedTokens, rag.corpusTokens)
+                + "% NOT injected into the prompt.");
         } else {
             log("RAG disabled - the model gets no existing tests.");
         }
@@ -114,34 +109,6 @@ public class Orchestrator {
         List<Path> written = Generator.writeGenerated(reply, prompt, layout);
 
         return new Result(written, llm.lastPromptTokens, llm.lastCompletionTokens);
-    }
-
-    /** Walk the discovered folders and read every existing test artifact. */
-    private List<SourceFile> collectTestArtifacts(RepoLayout layout) throws IOException {
-        List<SourceFile> out = new ArrayList<>();
-        if (Files.isDirectory(layout.featureDir)) {
-            try (Stream<Path> s = Files.walk(layout.featureDir)) {
-                s.filter(p -> p.toString().endsWith(".feature"))
-                 .sorted()
-                 .forEach(p -> out.add(read(p)));
-            }
-        }
-        if (Files.isDirectory(layout.testSourceRoot)) {
-            try (Stream<Path> s = Files.walk(layout.testSourceRoot)) {
-                s.filter(p -> p.toString().endsWith(".java"))
-                 .sorted()
-                 .forEach(p -> out.add(read(p)));
-            }
-        }
-        return out;
-    }
-
-    private SourceFile read(Path p) {
-        try {
-            return new SourceFile(p.toString(), new String(Files.readAllBytes(p)));
-        } catch (IOException e) {
-            return new SourceFile(p.toString(), "");
-        }
     }
 
     /** Estimated tokens (1 token ~ 4 chars) of a set of artifacts. */
