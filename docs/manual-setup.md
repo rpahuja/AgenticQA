@@ -162,7 +162,9 @@ The `@agenticQA` participant can run a **Java RAG orchestrator** that generates 
 files inside a target Maven/Cucumber repository. Setup for demo machines only:
 
 1. Install a **JDK (11 or newer)** and **Maven**.
-2. Set the environment variable `DEEPSEEK_API_KEY` to a DeepSeek API key.
+2. Have a DeepSeek API key ready: set the environment variable
+   `DEEPSEEK_API_KEY`, or put it in `agenticqa.properties` in step 4
+   (environment variables win over the file).
 3. Build the Java components from the AgenticQA repository root:
    ```
    cd <agenticqa-repo>
@@ -182,8 +184,10 @@ files inside a target Maven/Cucumber repository. Setup for demo machines only:
    in the prompt, or set `agenticqa.orchestrator.repoPath` in
    `config/agenticqa.properties` (use forward slashes in the path).
 
-The demo repository itself lives OUTSIDE the AgenticQA repository (sibling folder
-`MyProjects\youtube-demo`). See the root README (Java components) for the demo script.
+The root `README.md` of this repository covers the build, the CLI flags and
+where the RAG code lives. Note: the RAG parts (`rag/`, `SurfaceExtractor`) are
+deliberately TODO stubs — the build is green, and runs with RAG on fail with a
+clear `TODO` message until they are implemented.
 
 ## 7. Uninstall (manual)
 

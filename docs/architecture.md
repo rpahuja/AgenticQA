@@ -108,12 +108,12 @@ Two modes:
 
 - **Orchestrator mode (RAG)** — when `agenticqa-orchestrator.jar` is present in
   the extension's `orchestrator/` folder, the participant spawns
-  `java -jar agenticqa-orchestrator.jar --repo <repo> --rag on` against the
-  repository the user chose (`--repo` in the prompt, the
-  `agenticqa.orchestrator.repoPath` setting, or the workspace open in this
-  window). It streams the orchestrator's output into the chat, lists the files
-  the orchestrator wrote, and reports the orchestrator's exact token usage as
-  its classification mark.
+  `java -jar agenticqa-orchestrator.jar` (plus `--repo <path>` when the prompt
+  contains one). The orchestrator resolves the project itself: `--repo` from
+  the prompt, or `agenticqa.orchestrator.repoPath` in `agenticqa.properties`.
+  The participant streams the orchestrator's output into the chat, lists the
+  files the orchestrator wrote, and reports the orchestrator's exact token
+  usage as its classification mark.
 - **Fallback mode (phase 1)** — without the jar, the participant routes the
   prompt to the selected Copilot model and counts its own input/output tokens
   (`LanguageModelChat.countTokens`).
@@ -205,7 +205,7 @@ repository root) whose components live in **separate folders**:
 | Folder | Package | Responsibility |
 |---|---|---|
 | `core/` | `com.agenticqa.core.*` | shared kernel: configuration, LLM client (OpenAI-compatible), document model, model routing |
-| `rag/` | `com.agenticqa.rag.*` | retrieval: chunking (feature per Scenario, Java per method) + BM25 ranking + diversity pass + token budget (embedding search is a stage-2 drop-in replacement) |
+| `rag/` | `com.agenticqa.rag.*` | retrieval (your work area): `Chunker` cuts files into pieces, `Retriever` picks the most relevant pieces within a token budget |
 | `orchestrator/` | `com.agenticqa.orchestrator.*` | the flow: discover repo layout -> collect existing tests -> retrieve -> route -> one LLM call -> write files |
 | `config/agenticqa.properties` | - | providers, models, routing rules, RAG settings (gitignored: holds API keys) |
 
@@ -214,7 +214,7 @@ flowchart LR
     Q["QA: @agenticQA --repo <path> <prompt>"] --> P["participant spawns the jar"]
     P --> S["RepoScanner: pom.xml + Maven layout"]
     S --> C["collect .feature files + test classes"]
-    C --> R["Retriever: keyword rank, top-k"]
+    R --> M["Retriever: score pieces, pick top-k"]
     R --> M["ModelRouter: provider + model per task"]
     M --> L["LlmClient: one chat-completion call"]
     L --> G["Generator: FEATURE / STEPS / RUNNER markers -> files in the repo"]
@@ -225,8 +225,9 @@ Key properties:
 - **Auto-discovery** — the orchestrator reads `pom.xml` and the standard Maven
   layout (`src/test/java`, `src/test/resources/features`, existing stepdefs /
   runner packages). The user never tells the AI where things go.
-- **RAG** — chunking (feature per Scenario, Java per method) + BM25 ranking +
-  diversity pass + token budget. Full design in `docs/rag.md`.
+- **RAG** — the context builder lives in `rag/` (`Chunker`, `Retriever`) and
+  `orchestrator/SurfaceExtractor`. The pipeline calls fixed signatures, so the
+  implementation can be developed independently.
 - **Retrieval costs zero tokens** — chunking + BM25 ranking run in code; only
   the chunks that fit the token budget reach the prompt. The orchestrator logs
   the exact numbers (corpus tokens vs injected tokens) so the savings are
@@ -244,11 +245,6 @@ Key properties:
 
 Build: `mvn package` (JDK 11+) -> `target/agenticqa-orchestrator.jar`; the jar
 plus the `config/` folder are copied into the extension's `orchestrator/` folder.
-
-The demo application under test lives outside this repository (sibling folder
-`MyProjects\youtube-demo` — Java / Maven / Spring Boot / Cucumber). Demo flow:
-plain chat on the demo repo (without RAG) vs `@agenticQA --repo ...` (with RAG);
-compare the two resulting branches and the dashboard's With/Without tokens.
 
 ## Development
 
