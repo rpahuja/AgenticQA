@@ -21,7 +21,7 @@ public final class Generator {
 
     private Generator() {}
 
-    public static String buildPrompt(String feature, RepoLayout layout, List<SourceFile> context, String surface) {
+    public static String buildPrompt(String feature, RepoLayout layout, List<SourceFile> context) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are a senior QA automation engineer working in a Java Maven Spring Cucumber repository.\n\n");
         sb.append("Repository layout (discovered automatically):\n");
@@ -41,16 +41,12 @@ public final class Generator {
             }
         }
 
-        if (surface != null && !surface.isBlank()) {
-            sb.append("\n").append(surface).append("\n");
-        }
-
         sb.append("\nDeliver the generated tests in EXACTLY this format, nothing outside the markers:\n\n");
         sb.append("===FEATURE===\n");
         sb.append("<complete Cucumber .feature file for the new functionality, following the style of the existing features>\n\n");
         sb.append("===STEPS===\n");
         sb.append("<complete Java step definitions class, package ").append(layout.stepsPackage)
-          .append(", with imports, containing ONLY step definitions whose patterns are NOT listed in the repository surface above - reuse the listed existing steps instead of redefining them>\n\n");
+          .append(", with imports, reusing the repository's existing step definitions wherever possible - add new step definitions only for genuinely new steps>\n\n");
         sb.append("===RUNNER===\n");
         sb.append("<Java Cucumber runner class, package ").append(layout.runnerPackage)
           .append("> - or the single word NONE when the existing runner already picks up the new feature file>\n");

@@ -186,9 +186,9 @@ orchestrator:
    `config/agenticqa.properties` (use forward slashes in the path).
 
 The root `README.md` of this repository covers the build, the CLI flags and
-where the RAG code lives. Note: the RAG parts (`rag/`, `SurfaceExtractor`) are
-deliberately TODO stubs — the build is green, and runs with RAG on fail with a
-clear `TODO` message until they are implemented.
+where the RAG code lives. Note: the RAG part (`rag/`) is deliberately a TODO
+stub — the build is green, and runs with RAG on fail with a clear `TODO`
+message until it is implemented.
 
 ## 7. Uninstall (manual)
 

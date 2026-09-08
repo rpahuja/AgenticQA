@@ -7,7 +7,7 @@ TODO markers in the code mark exactly what is missing.
 
 ## Prerequisites
 
-- JDK 17 or newer
+- JDK 11 or newer
 - Maven 3.9+
 - (optional) VS Code for the `@agenticQA` chat participant
 
@@ -35,12 +35,11 @@ Useful flags: `--dry-run` (scan + retrieval, no AI call, no tokens),
 | Package | What you build here |
 |---|---|
 | `rag/RagEngine.java` | the single RAG entry point the orchestrator calls (stub - your work) |
-| `orchestrator/SurfaceExtractor.java` | the repository "fact sheet" (stub - your work) |
 | `orchestrator/Generator.java` | the model prompt + file writing |
 
 Everything else (`core/`, `orchestrator/` plumbing, the extension) is shared
-infrastructure — `RagEngine.buildContext(...)` and `SurfaceExtractor.extract(...)`
-are the contracts the pipeline calls into. Keep their signatures unchanged.
+infrastructure — `RagEngine.buildContext(...)` is the contract the pipeline
+calls into. Keep its signature unchanged.
 
 ## Configuration
 

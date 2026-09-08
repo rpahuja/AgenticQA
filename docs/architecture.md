@@ -225,9 +225,8 @@ Key properties:
   layout (`src/test/java`, `src/test/resources/features`, existing stepdefs /
   runner packages). The user never tells the AI where things go.
 - **RAG** — the context builder is one entry point,
-  `rag/RagEngine.buildContext(...)`, plus `orchestrator/SurfaceExtractor` for
-  the repository fact sheet. The pipeline calls fixed signatures, so the
-  implementation can be developed independently.
+  `rag/RagEngine.buildContext(...)`. The pipeline calls this fixed signature,
+  so the implementation can be developed independently.
 - **Retrieval costs zero tokens** — the retrieval implementation runs in code;
   only the pieces that fit the token budget reach the prompt. The orchestrator
   logs the exact numbers (corpus size vs injected size) so the savings are

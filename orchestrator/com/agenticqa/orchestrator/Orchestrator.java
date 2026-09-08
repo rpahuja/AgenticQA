@@ -88,24 +88,17 @@ public class Orchestrator {
         }
         log("Model: " + provider.id + "/" + model + " (routed via " + route.source + ")");
 
-        // Deterministic repo surface: existing step definitions + TestWorld state.
-        // Retrieval gives similar scenarios; the surface gives the repository's
-        // interface, so the model reuses steps and fields instead of inventing them.
-        SurfaceExtractor.Surface surface = SurfaceExtractor.extract(layout);
-        log("RAG: repo surface = " + surface.steps + " existing steps + " + surface.fields
-            + " state fields (~" + surface.tokenEstimate + " tokens).");
-
         if (dryRun) {
             int n = context == null ? 0 : context.size();
             int t = context == null ? 0 : totalTokens(context);
             log("Dry run: would call " + provider.id + "/" + model + " with " + n
-                + " context chunks (~" + t + " tokens) + repo surface (~" + surface.tokenEstimate + " tokens).");
+                + " context chunks (~" + t + " tokens).");
             log("Dry run: no AI tokens consumed, no files written.");
             return new Result(List.of(), 0, 0);
         }
 
         LlmClient llm = new LlmClient(provider.id, provider.apiKey, provider.baseUrl);
-        String reply = llm.complete(Generator.buildPrompt(prompt, layout, context, surface.text), model);
+        String reply = llm.complete(Generator.buildPrompt(prompt, layout, context), model);
         List<Path> written = Generator.writeGenerated(reply, prompt, layout);
 
         return new Result(written, llm.lastPromptTokens, llm.lastCompletionTokens);
