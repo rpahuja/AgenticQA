@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AgenticQA · Token Usage</title>
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">◆</span>
+      <span class="name">AgenticQA</span>
+      <span class="tag">token usage</span>
+    </div>
+    <div class="controls">
+      <label for="month">Month</label>
+      <input type="month" id="month"/>
+      <span id="health" class="dot" title="collector status"></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="cards">
+      <div class="card total">
+        <div class="label">This month · total tokens</div>
+        <div class="value" id="cardTotal">–</div>
+        <div class="sub" id="cardTotalSub">–</div>
+      </div>
+      <div class="card with">
+        <div class="label">With AgenticQA</div>
+        <div class="value" id="cardWith">–</div>
+        <div class="sub" id="cardWithSub">–</div>
+      </div>
+      <div class="card without">
+        <div class="label">Without AgenticQA</div>
+        <div class="value" id="cardWithout">–</div>
+        <div class="sub" id="cardWithoutSub">–</div>
+      </div>
+      <div class="card calls">
+        <div class="label">LLM calls</div>
+        <div class="value" id="cardCalls">–</div>
+        <div class="sub" id="cardCallsSub">–</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Daily token usage <span class="hint">with vs without AgenticQA</span></h2>
+      <div id="chart" class="chart"></div>
+      <div class="legend">
+        <span class="swatch sw-with"></span> With AgenticQA
+        <span class="swatch sw-without"></span> Without AgenticQA
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>By model</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th class="num">Captured</th>
+            <th class="num">With AgenticQA</th>
+            <th class="num">Calls</th>
+          </tr>
+        </thead>
+        <tbody id="modelRows">
+          <tr><td colspan="4" class="empty">No data yet for this month.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Agent turns <span class="hint">turn-level usage reported by Copilot Chat for agent sessions (e.g. BYOK providers like DeepSeek)</span></h2>
+      <p id="turnSummary" class="hint"></p>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th class="num">Turns</th>
+            <th class="num">Input</th>
+            <th class="num">Est. cache hit</th>
+            <th class="num">Output</th>
+          </tr>
+        </thead>
+        <tbody id="turnRows">
+          <tr><td colspan="5" class="empty">No agent-turn data yet for this month.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Recent sessions</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Participant</th>
+            <th>Model</th>
+            <th class="num">Tokens</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody id="convRows">
+          <tr><td colspan="5" class="empty">No conversations yet.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="reconcilePanel" hidden>
+      <h2>@agenticQA self-reported vs captured</h2>
+      <div id="reconcileBody" class="reconcile"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span>AgenticQA phase 1 · all data stays on this machine · collector <span id="footMode">–</span></span>
+    <span>updated <span id="refreshedAt">–</span></span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

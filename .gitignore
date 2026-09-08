@@ -22,3 +22,14 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# AgenticQA
+.agenticqa/
+node_modules/
+dist/
+*.vsix
+*.tmp
+dev/.e2e*/
+settings.json.agenticqa.bak-*
+target/
+config/agenticqa.properties

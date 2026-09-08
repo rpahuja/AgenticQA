@@ -1,0 +1,79 @@
+{
+  "name": "agenticqa-vscode",
+  "displayName": "AgenticQA",
+  "description": "Agentic AI orchestrator for QA automation engineers with token-usage telemetry for GitHub Copilot Chat.",
+  "version": "0.1.0",
+  "publisher": "agenticqa",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.119.0"
+  },
+  "categories": [
+    "Other",
+    "AI"
+  ],
+  "keywords": [
+    "agentic",
+    "qa",
+    "copilot",
+    "tokens",
+    "telemetry"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onChatParticipant:agenticqa"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "agenticqa",
+        "name": "agenticQA",
+        "fullName": "AgenticQA",
+        "description": "AgenticQA orchestrator for QA automation tasks (with token-usage tracking)."
+      }
+    ],
+    "commands": [
+      {
+        "command": "agenticqa.openDashboard",
+        "title": "AgenticQA: Open Token Usage Dashboard"
+      },
+      {
+        "command": "agenticqa.showStatus",
+        "title": "AgenticQA: Show Capture Status"
+      }
+    ],
+    "configuration": {
+      "title": "AgenticQA",
+      "properties": {
+        "agenticqa.dataHome": {
+          "type": "string",
+          "default": "",
+          "description": "Folder for AgenticQA data (defaults to ~/.agenticqa)."
+        },
+        "agenticqa.serverPort": {
+          "type": "number",
+          "default": 8787,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Local port (127.0.0.1 only) for the AgenticQA collector and dashboard."
+        },
+        "agenticqa.manageOtelSettings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically enable Copilot Chat OpenTelemetry token export to the local capture file."
+        },
+        "agenticqa.showTokenMeterInChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Append a token meter note to @agenticQA chat responses."
+        },
+        "agenticqa.orchestrator.jarPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to agenticqa-orchestrator.jar (the Java RAG orchestrator). Leave empty to use the jar bundled with the extension (orchestrator/agenticqa-orchestrator.jar)."
+        }
+      }
+    }
+  }
+}
