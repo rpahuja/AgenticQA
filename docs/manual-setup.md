@@ -156,10 +156,11 @@ VS Code). The extension starts automatically.
 7. **Log** — View → Output → pick **AgenticQA** from the dropdown: startup and ingestion
    lines, no errors.
 
-## 6. Optional — Java RAG orchestrator (for the POC demo)
+## 6. Optional — Java RAG orchestrator
 
 The `@agenticQA` participant can run a **Java RAG orchestrator** that generates test
-files inside a target Maven/Cucumber repository. Setup for demo machines only:
+files inside a target Maven/Cucumber repository. Setup for machines that run the
+orchestrator:
 
 1. Install a **JDK (11 or newer)** and **Maven**.
 2. Have a DeepSeek API key ready: set the environment variable

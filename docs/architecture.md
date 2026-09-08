@@ -228,9 +228,9 @@ Key properties:
 - **RAG** — the context builder lives in `rag/` (`Chunker`, `Retriever`) and
   `orchestrator/SurfaceExtractor`. The pipeline calls fixed signatures, so the
   implementation can be developed independently.
-- **Retrieval costs zero tokens** — chunking + BM25 ranking run in code; only
-  the chunks that fit the token budget reach the prompt. The orchestrator logs
-  the exact numbers (corpus tokens vs injected tokens) so the savings are
+- **Retrieval costs zero tokens** — the retrieval implementation runs in code;
+  only the pieces that fit the token budget reach the prompt. The orchestrator
+  logs the exact numbers (corpus size vs injected size) so the savings are
   visible in every chat reply.
 - **Multi-provider + routing** — `agenticqa.properties` lists providers (each
   with endpoint, key, models) and keyword rules; `ModelRouter` picks
