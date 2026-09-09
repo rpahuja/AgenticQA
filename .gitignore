@@ -32,5 +32,4 @@ dist/
 dev/.e2e*/
 settings.json.agenticqa.bak-*
 target/
-config/agenticqa.properties
 feedback_loop.md
