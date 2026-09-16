@@ -77,8 +77,9 @@ public class Main {
         Orchestrator.Result result;
         try {
             result = new Orchestrator(config)
-                .run(Path.of(repo), prompt, opts.get("provider"), opts.get("model"),
-                     opts.containsKey("dry-run"));
+    .run(Path.of(repo), prompt, opts.get("provider"), opts.get("model"),
+         opts.containsKey("dry-run"),
+         opts.containsKey("debug-rag"));
         } catch (Exception e) {
             // Keep failures human-readable in the chat reply - no stack trace.
             System.err.println("ERROR: " + e.getMessage());

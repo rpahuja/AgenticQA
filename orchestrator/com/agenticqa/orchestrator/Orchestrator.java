@@ -13,11 +13,11 @@ import java.util.List;
 /**
  * The orchestration flow behind @agenticQA:
  *
- *   discover repository layout
- *     -> ask the RAG for the focused context (single entry point, zero tokens)
- *     -> route the task to a provider + model (routing rules)
- *     -> one LLM call with the focused context
- *     -> write the generated tests into the discovered folders
+ * discover repository layout
+ * -> ask the RAG for the focused context (single entry point, zero tokens)
+ * -> route the task to a provider + model (routing rules)
+ * -> one LLM call with the focused context
+ * -> write the generated tests into the discovered folders
  */
 public class Orchestrator {
 
@@ -36,7 +36,13 @@ public class Orchestrator {
      * (bypasses the routing rules).
      */
     public Result run(Path repo, String prompt, String forcedProviderId, String forcedModel,
-                      boolean dryRun) throws Exception {
+            boolean dryRun) throws Exception {
+        return run(repo, prompt, forcedProviderId, forcedModel, dryRun, false);
+    }
+
+    /** Same run with optional RAG chunk diagnostics for CLI/debug use. */
+    public Result run(Path repo, String prompt, String forcedProviderId, String forcedModel,
+            boolean dryRun, boolean debugRag) throws Exception {
         log("Repository       : " + repo);
 
         RepoLayout layout = RepoScanner.scan(repo);
@@ -52,17 +58,19 @@ public class Orchestrator {
             // zero LLM tokens - only the pieces that fit the budget reach the
             // prompt.
             RagEngine.RagContext rag = RagEngine.buildContext(
-                layout.featureDir, layout.testSourceRoot, prompt,
-                config.topK, config.contextTokenBudget);
+                    layout.featureDir, layout.testSourceRoot, prompt,
+                    config.topK, config.contextTokenBudget);
             context = rag.chunks;
 
             log("RAG: knowledge base = " + rag.corpusFiles + " files -> " + rag.corpusChunks
-                + " chunks (~" + rag.corpusTokens + " tokens).");
+                    + " chunks (~" + rag.corpusTokens + " tokens).");
             log("RAG: retrieved " + rag.chunks.size() + " chunks (~" + rag.injectedTokens
-                + " tokens) = " + pct(rag.injectedTokens, rag.corpusTokens)
-                + "% of the knowledge base - "
-                + pct(rag.corpusTokens - rag.injectedTokens, rag.corpusTokens)
-                + "% NOT injected into the prompt.");
+                    + " tokens) = " + pct(rag.injectedTokens, rag.corpusTokens)
+                    + "% of the knowledge base - "
+                    + pct(rag.corpusTokens - rag.injectedTokens, rag.corpusTokens)
+                    + "% NOT injected into the prompt.");
+            if (debugRag)
+                printRagChunks(layout, rag);
         } else {
             log("RAG disabled - the model gets no existing tests.");
         }
@@ -72,11 +80,11 @@ public class Orchestrator {
 
     /** Pick the provider/model for this task and finish the run. */
     private Result runWithModel(String prompt, RepoLayout layout, List<SourceFile> context,
-                                String forcedProviderId, String forcedModel,
-                                boolean dryRun) throws Exception {
+            String forcedProviderId, String forcedModel,
+            boolean dryRun) throws Exception {
         ModelRouter.Route route = forcedProviderId != null
-            ? new ModelRouter.Route(forcedProviderId, forcedModel, "cli")
-            : ModelRouter.route(config, prompt);
+                ? new ModelRouter.Route(forcedProviderId, forcedModel, "cli")
+                : ModelRouter.route(config, prompt);
 
         AgenticqaConfig.Provider provider = config.findProvider(route.providerId);
         if (provider == null) {
@@ -92,14 +100,19 @@ public class Orchestrator {
             int n = context == null ? 0 : context.size();
             int t = context == null ? 0 : totalTokens(context);
             log("Dry run: would call " + provider.id + "/" + model + " with " + n
-                + " context chunks (~" + t + " tokens).");
+                    + " context chunks (~" + t + " tokens).");
             log("Dry run: no AI tokens consumed, no files written.");
             return new Result(List.of(), 0, 0);
         }
 
         LlmClient llm = new LlmClient(provider.id, provider.apiKey, provider.baseUrl);
         String reply = llm.complete(Generator.buildPrompt(prompt, layout, context), model);
-        List<Path> written = Generator.writeGenerated(reply, prompt, layout);
+
+        List<String> guardNotes = new java.util.ArrayList<>();
+        List<Path> written = Generator.writeGenerated(reply, prompt, layout, guardNotes);
+        for (String note : guardNotes) {
+            log("Guard: " + note);
+        }
 
         return new Result(written, llm.lastPromptTokens, llm.lastCompletionTokens);
     }
@@ -127,6 +140,57 @@ public class Orchestrator {
         } catch (Exception e) {
             return p.toString();
         }
+    }
+
+    private void printRagChunks(RepoLayout layout, RagEngine.RagContext rag) {
+        System.out.println();
+        System.out.println("========== RAG DEBUG ==========");
+        System.out.println("Retrieved chunks: " + rag.chunks.size());
+        System.out.println();
+
+        for (int i = 0; i < rag.chunks.size(); i++) {
+            SourceFile chunk = rag.chunks.get(i);
+
+            System.out.println("----- CHUNK " + (i + 1) + " -----");
+
+            String path;
+            try {
+                path = layout.repo.relativize(Path.of(chunk.path)).toString();
+            } catch (Exception e) {
+                path = chunk.path;
+            }
+
+            System.out.println("Type   : " + detectChunkType(chunk));
+            System.out.println("File   : " + path);
+            System.out.println("Title  : " + chunk.title);
+            System.out.println("Tokens : " + estimateTokens(chunk.content));
+            System.out.println();
+            System.out.println(chunk.content);
+            System.out.println();
+        }
+
+        System.out.println("========== END RAG DEBUG ==========");
+        System.out.println();
+    }
+
+    private String detectChunkType(SourceFile chunk) {
+        String path = chunk.path == null ? "" : chunk.path.toLowerCase();
+
+        if (path.endsWith(".feature")) {
+            return "FEATURE / SCENARIO";
+        }
+
+        if (path.endsWith(".java")) {
+            return "JAVA / METHOD";
+        }
+
+        return "UNKNOWN";
+    }
+
+    private int estimateTokens(String content) {
+        return content == null || content.isEmpty()
+                ? 0
+                : Math.max(1, content.length() / 4);
     }
 
     /** What one orchestration run produced. */

@@ -17,7 +17,7 @@ import java.util.Properties;
  * provider/model handles a task (see ModelRouter).
  *
  * Per-provider API key precedence:
- *   environment variable <ID>_API_KEY  >  agenticqa.llm.<id>.apiKey
+ * environment variable <ID>_API_KEY > agenticqa.llm.<id>.apiKey
  */
 public class AgenticqaConfig {
 
@@ -51,7 +51,8 @@ public class AgenticqaConfig {
         public boolean matches(String prompt) {
             String t = prompt.toLowerCase(Locale.ROOT);
             for (String k : keywords) {
-                if (!k.isEmpty() && t.contains(k)) return true;
+                if (!k.isEmpty() && t.contains(k))
+                    return true;
             }
             return false;
         }
@@ -60,7 +61,8 @@ public class AgenticqaConfig {
     /** Find a provider by id, or null. */
     public Provider findProvider(String id) {
         for (Provider p : providers) {
-            if (p.id.equalsIgnoreCase(id)) return p;
+            if (p.id.equalsIgnoreCase(id))
+                return p;
         }
         return null;
     }
@@ -87,16 +89,18 @@ public class AgenticqaConfig {
         // Providers: agenticqa.llm.providers=deepseek,openai + one block each.
         for (String rawId : props.getProperty("agenticqa.llm.providers", "deepseek").split(",")) {
             String id = rawId.trim();
-            if (id.isEmpty()) continue;
+            if (id.isEmpty())
+                continue;
             Provider p = new Provider();
             p.id = id;
             p.baseUrl = props.getProperty("agenticqa.llm." + id + ".baseUrl", "");
             p.apiKey = firstNonBlank(
-                System.getenv(id.toUpperCase(Locale.ROOT) + "_API_KEY"),
-                props.getProperty("agenticqa.llm." + id + ".apiKey", ""));
+                    System.getenv(id.toUpperCase(Locale.ROOT) + "_API_KEY"),
+                    props.getProperty("agenticqa.llm." + id + ".apiKey", ""));
             for (String m : props.getProperty("agenticqa.llm." + id + ".models", "").split(",")) {
                 String model = m.trim();
-                if (!model.isEmpty()) p.models.add(model);
+                if (!model.isEmpty())
+                    p.models.add(model);
             }
             cfg.providers.add(p);
         }
@@ -106,16 +110,20 @@ public class AgenticqaConfig {
         cfg.defaultProvider = def[0].trim();
         cfg.defaultModel = def.length > 1 ? def[1].trim() : "";
         for (String key : props.stringPropertyNames()) {
-            if (!key.startsWith("agenticqa.routing.rule.")) continue;
+            if (!key.startsWith("agenticqa.routing.rule."))
+                continue;
             String[] halves = props.getProperty(key, "").split("->", 2);
-            if (halves.length < 2) continue;
+            if (halves.length < 2)
+                continue;
             String[] target = halves[1].split(":", 2);
-            if (target.length < 2) continue;
+            if (target.length < 2)
+                continue;
             RoutingRule rule = new RoutingRule();
             rule.id = key.substring("agenticqa.routing.rule.".length());
             for (String kw : halves[0].split("\\|")) {
                 String k = kw.trim().toLowerCase(Locale.ROOT);
-                if (!k.isEmpty()) rule.keywords.add(k);
+                if (!k.isEmpty())
+                    rule.keywords.add(k);
             }
             rule.providerId = target[0].trim();
             rule.model = target[1].trim();
@@ -126,29 +134,58 @@ public class AgenticqaConfig {
         // (agenticqa.rag.enabled); the --rag CLI flag overrides it for
         // standalone jar runs.
         cfg.ragEnabled = Boolean.parseBoolean(
-            props.getProperty("agenticqa.rag.enabled", String.valueOf(cfg.ragEnabled)));
+                props.getProperty("agenticqa.rag.enabled", String.valueOf(cfg.ragEnabled)));
         cfg.topK = Integer.parseInt(
-            props.getProperty("agenticqa.rag.topK", String.valueOf(cfg.topK)));
+                props.getProperty("agenticqa.rag.topK", String.valueOf(cfg.topK)));
         cfg.contextTokenBudget = Integer.parseInt(
-            props.getProperty("agenticqa.rag.contextTokenBudget", String.valueOf(cfg.contextTokenBudget)));
+                props.getProperty("agenticqa.rag.contextTokenBudget", String.valueOf(cfg.contextTokenBudget)));
         cfg.repoPath = props.getProperty("agenticqa.orchestrator.repoPath", cfg.repoPath).trim();
         return cfg;
     }
 
-    /** Where the config file lives: a "config" folder next to the running jar. */
+    /**
+     * Where the config file lives. Checked in order, first existing wins:
+     * 1. "config" folder next to the running jar (packaged layout)
+     * 2. "config" folder in the current working directory
+     * 3. "config" folder one level up (running from target/ in the repo)
+     * 4. "config" folder two levels up (running from target/classes/...)
+     * When none exists, the jar-relative path is returned so the caller can
+     * report a sensible location.
+     */
     public static Path defaultConfigFile() {
+        Path jarRelative = null;
         try {
             Path jar = Path.of(AgenticqaConfig.class.getProtectionDomain()
-                .getCodeSource().getLocation().toURI());
-            return jar.getParent().resolve("config").resolve("agenticqa.properties");
-        } catch (Exception e) {
-            return Path.of("config", "agenticqa.properties");
+                    .getCodeSource().getLocation().toURI());
+            jarRelative = jar.getParent().resolve("config").resolve("agenticqa.properties");
+        } catch (Exception ignored) {
+            // Fall through to the working-directory candidates below.
         }
+
+        List<Path> candidates = new ArrayList<>();
+        if (jarRelative != null)
+            candidates.add(jarRelative);
+        Path cwd = Path.of("").toAbsolutePath();
+        candidates.add(cwd.resolve("config").resolve("agenticqa.properties"));
+        if (cwd.getParent() != null) {
+            candidates.add(cwd.getParent().resolve("config").resolve("agenticqa.properties"));
+        }
+        if (cwd.getParent() != null && cwd.getParent().getParent() != null) {
+            candidates.add(cwd.getParent().getParent()
+                    .resolve("config").resolve("agenticqa.properties"));
+        }
+
+        for (Path candidate : candidates) {
+            if (Files.isRegularFile(candidate))
+                return candidate;
+        }
+        return jarRelative != null ? jarRelative : candidates.get(0);
     }
 
     private static String firstNonBlank(String... values) {
         for (String v : values) {
-            if (v != null && !v.isBlank()) return v.trim();
+            if (v != null && !v.isBlank())
+                return v.trim();
         }
         return "";
     }
