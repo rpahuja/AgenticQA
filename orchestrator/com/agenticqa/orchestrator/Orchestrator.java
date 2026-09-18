@@ -59,7 +59,7 @@ public class Orchestrator {
             // prompt.
             RagEngine.RagContext rag = RagEngine.buildContext(
                     layout.featureDir, layout.testSourceRoot, prompt,
-                    config.topK, config.contextTokenBudget);
+                    config.topK, config.contextTokenBudget, debugRag);
             context = rag.chunks;
 
             log("RAG: knowledge base = " + rag.corpusFiles + " files -> " + rag.corpusChunks

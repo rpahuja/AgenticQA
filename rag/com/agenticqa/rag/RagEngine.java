@@ -7,18 +7,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
-/**
- * Single public entry point for RAG retrieval.
- *
- * Topic 1 implementation:
- *
- *   Feature files -> Scenario / Scenario Outline chunks
- *   Java files    -> method / constructor chunks
- *
- * Later topics will add normalization, ranking, query expansion,
- * deduplication, reuse-first retrieval, evaluation and caching.
- */
 public final class RagEngine {
 
     private RagEngine() {
@@ -31,54 +24,85 @@ public final class RagEngine {
             int topK,
             int tokenBudget) throws IOException {
 
-        /*
-         * Topic 1 intentionally focuses on structured chunking.
-         *
-         * Ranking is introduced in Topic 3, so at this stage we collect
-         * semantic chunks deterministically.
-         */
-        FeatureChunker.Result featureResult =
-            FeatureChunker.chunkDirectory(featureDir);
+        return buildContext(featureDir, testSourceRoot, prompt, topK, tokenBudget, false);
+    }
 
-        JavaChunker.Result javaResult =
-            JavaChunker.chunkDirectory(testSourceRoot);
+    /**
+     * Same as {@link #buildContext(Path, Path, String, int, int)} but with
+     * optional normalization/vocabulary diagnostics on stdout.
+     *
+     * @param debug when {@code true}, dump every chunk's original and
+     *              normalized text plus the repository vocabulary.
+     */
+    public static RagContext buildContext(
+            Path featureDir,
+            Path testSourceRoot,
+            String prompt,
+            int topK,
+            int tokenBudget,
+            boolean debug) throws IOException {
+
+        FeatureChunker.Result featureResult = FeatureChunker.chunkDirectory(featureDir);
+
+        JavaChunker.Result javaResult = JavaChunker.chunkDirectory(testSourceRoot);
 
         List<SourceFile> allChunks = new ArrayList<>(
-            featureResult.chunks.size()
-                + javaResult.chunks.size()
-        );
+                featureResult.chunks.size()
+                        + javaResult.chunks.size());
 
         allChunks.addAll(featureResult.chunks);
         allChunks.addAll(javaResult.chunks);
 
-        int corpusFiles =
-            featureResult.fileCount
+        Map<SourceFile, String> normalizedTexts = new LinkedHashMap<>();
+
+        for (SourceFile chunk : allChunks) {
+            normalizedTexts.put(
+                    chunk,
+                    TextNormalizer.normalize(
+                            chunk.title + " " + chunk.content));
+        }
+
+        Set<String> vocabulary = RepositoryVocabulary.extract(allChunks);
+
+        int corpusFiles = featureResult.fileCount
                 + javaResult.fileCount;
 
-        int corpusTokens =
-            estimateTokens(allChunks);
+        int corpusTokens = estimateTokens(allChunks);
 
-        /*
-         * There is no ranking yet in Topic 1.
-         *
-         * Returning all chunks would potentially exceed the token budget,
-         * so apply a deterministic first-fit budget as temporary plumbing.
-         *
-         * Topic 3 will replace this with BM25-ranked token-budget selection.
-         */
-        List<SourceFile> selected =
-            selectWithinBudget(allChunks, topK, tokenBudget);
+        List<SourceFile> selected = selectWithinBudget(allChunks, topK, tokenBudget);
 
-        int injectedTokens =
-            estimateTokens(selected);
+        int injectedTokens = estimateTokens(selected);
+
+        if (debug) {
+            System.out.println();
+            System.out.println("=== NORMALIZATION DEBUG ===");
+
+            for (SourceFile chunk : allChunks) {
+                String normalized = normalizedTexts.get(chunk);
+
+                System.out.println();
+                System.out.println("File: " + chunk.path);
+                System.out.println("Title: " + chunk.title);
+                System.out.println("Original:");
+                System.out.println(chunk.content);
+                System.out.println("Normalized:");
+                System.out.println(normalized);
+            }
+
+            System.out.println();
+            System.out.println("Repository vocabulary:");
+            System.out.println(vocabulary);
+            System.out.println("=== END NORMALIZATION DEBUG ===");
+        }
 
         return new RagContext(
-            selected,
-            corpusFiles,
-            allChunks.size(),
-            corpusTokens,
-            injectedTokens
-        );
+                selected,
+                corpusFiles,
+                allChunks.size(),
+                corpusTokens,
+                injectedTokens,
+                normalizedTexts,
+                vocabulary);
     }
 
     private static List<SourceFile> selectWithinBudget(
@@ -116,11 +140,6 @@ public final class RagEngine {
         return selected;
     }
 
-    /**
-     * Existing project code estimates tokens at approximately
-     * one token per four characters, so Topic 1 follows the same
-     * convention for consistent statistics.
-     */
     private static int estimateTokens(
             List<SourceFile> files) {
 
@@ -144,9 +163,8 @@ public final class RagEngine {
         }
 
         return Math.max(
-            1,
-            file.content.length() / 4
-        );
+                1,
+                file.content.length() / 4);
     }
 
     public static final class RagContext {
@@ -161,22 +179,27 @@ public final class RagEngine {
 
         public final int injectedTokens;
 
+        public final Map<SourceFile, String> normalizedTexts;
+        public final Set<String> vocabulary;
+
         public RagContext(
                 List<SourceFile> chunks,
                 int corpusFiles,
                 int corpusChunks,
                 int corpusTokens,
-                int injectedTokens) {
+                int injectedTokens,
+                Map<SourceFile, String> normalizedTexts,
+                Set<String> vocabulary) {
 
-            this.chunks =
-                Collections.unmodifiableList(
-                    new ArrayList<>(chunks)
-                );
+            this.chunks = Collections.unmodifiableList(
+                    new ArrayList<>(chunks));
 
             this.corpusFiles = corpusFiles;
             this.corpusChunks = corpusChunks;
             this.corpusTokens = corpusTokens;
             this.injectedTokens = injectedTokens;
+            this.normalizedTexts = Collections.unmodifiableMap(new LinkedHashMap<>(normalizedTexts));
+            this.vocabulary = Collections.unmodifiableSet(new LinkedHashSet<>(vocabulary));
         }
     }
 }
