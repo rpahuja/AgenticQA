@@ -69,7 +69,17 @@ public final class RagEngine {
 
         int corpusTokens = estimateTokens(allChunks);
 
-        List<SourceFile> selected = selectWithinBudget(allChunks, topK, tokenBudget);
+        List<BM25Ranker.RankedChunk> ranked =
+        BM25Ranker.rank(
+                prompt,
+                allChunks,
+                normalizedTexts);
+
+List<SourceFile> selected =
+        selectWithinBudget(
+                ranked,
+                topK,
+                tokenBudget);
 
         int injectedTokens = estimateTokens(selected);
 
@@ -106,39 +116,40 @@ public final class RagEngine {
     }
 
     private static List<SourceFile> selectWithinBudget(
-            List<SourceFile> chunks,
-            int topK,
-            int tokenBudget) {
+        List<BM25Ranker.RankedChunk> rankedChunks,
+        int topK,
+        int tokenBudget) {
 
-        if (chunks.isEmpty()
-                || topK <= 0
-                || tokenBudget <= 0) {
-
-            return Collections.emptyList();
-        }
-
-        List<SourceFile> selected = new ArrayList<>();
-
-        int usedTokens = 0;
-
-        for (SourceFile chunk : chunks) {
-
-            if (selected.size() >= topK) {
-                break;
-            }
-
-            int tokens = estimateTokens(chunk);
-
-            if (usedTokens + tokens > tokenBudget) {
-                continue;
-            }
-
-            selected.add(chunk);
-            usedTokens += tokens;
-        }
-
-        return selected;
+    if (rankedChunks == null
+            || rankedChunks.isEmpty()
+            || topK <= 0
+            || tokenBudget <= 0) {
+        return Collections.emptyList();
     }
+
+    List<SourceFile> selected = new ArrayList<>();
+    int usedTokens = 0;
+
+    for (BM25Ranker.RankedChunk ranked : rankedChunks) {
+
+        if (selected.size() >= topK) {
+            break;
+        }
+
+        SourceFile chunk = ranked.chunk();
+
+        int tokens = estimateTokens(chunk);
+
+        if (usedTokens + tokens > tokenBudget) {
+            continue;
+        }
+
+        selected.add(chunk);
+        usedTokens += tokens;
+    }
+
+    return selected;
+}
 
     private static int estimateTokens(
             List<SourceFile> files) {
