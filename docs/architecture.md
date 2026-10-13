@@ -242,7 +242,7 @@ Key properties:
 - **Security** — API keys live in `config/agenticqa.properties` (gitignored) or
   in `<ID>_API_KEY` environment variables; no keys in source code.
 
-Build: `mvn package` (JDK 11+) -> `target/agenticqa-orchestrator.jar`; the jar
+Build: `mvn package` (JDK 25+) -> `target/agenticqa-orchestrator.jar`; the jar
 plus the `config/` folder are copied into the extension's `orchestrator/` folder.
 
 ## Development

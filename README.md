@@ -7,7 +7,7 @@ TODO markers in the code mark exactly what is missing.
 
 ## Prerequisites
 
-- JDK 11 or newer
+- JDK 25 or newer (latest LTS)
 - Maven 3.9+
 - (optional) VS Code for the `@agenticQA` chat participant
 

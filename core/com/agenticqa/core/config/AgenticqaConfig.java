@@ -17,7 +17,7 @@ import java.util.Properties;
  * provider/model handles a task (see ModelRouter).
  *
  * Per-provider API key precedence:
- * environment variable <ID>_API_KEY > agenticqa.llm.<id>.apiKey
+ * agenticqa.llm.<id>.apiKey > environment variable <ID>_API_KEY
  */
 public class AgenticqaConfig {
 
@@ -95,8 +95,8 @@ public class AgenticqaConfig {
             p.id = id;
             p.baseUrl = props.getProperty("agenticqa.llm." + id + ".baseUrl", "");
             p.apiKey = firstNonBlank(
-                    System.getenv(id.toUpperCase(Locale.ROOT) + "_API_KEY"),
-                    props.getProperty("agenticqa.llm." + id + ".apiKey", ""));
+                    props.getProperty("agenticqa.llm." + id + ".apiKey", ""),
+                    System.getenv(id.toUpperCase(Locale.ROOT) + "_API_KEY"));
             for (String m : props.getProperty("agenticqa.llm." + id + ".models", "").split(",")) {
                 String model = m.trim();
                 if (!model.isEmpty())

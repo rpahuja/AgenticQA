@@ -162,10 +162,10 @@ The `@agenticQA` participant can run a **Java RAG orchestrator** that generates 
 files inside a target Maven/Cucumber repository. Setup for machines that run the
 orchestrator:
 
-1. Install a **JDK (11 or newer)** and **Maven**.
+1. Install **JDK 25 or newer (latest LTS)** and **Maven**.
 2. Have a DeepSeek API key ready: set the environment variable
    `DEEPSEEK_API_KEY`, or put it in `agenticqa.properties` in step 4
-   (environment variables win over the file).
+   (the file wins over environment variables).
 3. Build the Java components from the AgenticQA repository root:
    ```
    cd <agenticqa-repo>
@@ -276,4 +276,5 @@ indicates org control.
 | Extension missing / `@agenticQA` not available | The folder name must be exactly `agenticqa.agenticqa-vscode-<version>` with `package.json` directly inside; then reload or restart VS Code. |
 | Dashboard unreachable | Only the leader window serves it — open it via the command from any window. If the port is busy, set `agenticqa.serverPort` to a free port. |
 | Parse errors in Output → AgenticQA | The journal format may differ slightly; tolerant parsing covers the known variants — report the line shape if new. |
+| `The selected model '…' is not available` | In Copilot Chat, open the model picker and choose a model currently offered for the selected chat/agent mode. A model from another provider or agent host may not be available in this session. If the model still appears unavailable, reload VS Code and check that the relevant Copilot/provider sign-in is active. This is separate from the Java orchestrator's `agenticqa.llm.*` settings. |
 | Settings show a lock icon | Managed by org policy — contact IT (also consider the `.vsix` route). |
