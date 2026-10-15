@@ -212,6 +212,51 @@ public final class RagEngine {
                                 vocabulary);
         }
 
+
+        /**
+         * Runs the golden-set evaluation against the real retrieval pipeline.
+         * Expected IDs must be independently curated using chunkId(path, title).
+         */
+        public static EvaluationReport evaluate(
+                        Path featureDir,
+                        Path testSourceRoot,
+                        List<EvaluationCase> goldenSet,
+                        int topK,
+                        int tokenBudget) throws IOException {
+
+                if (goldenSet == null) {
+                        throw new IllegalArgumentException("goldenSet must not be null");
+                }
+
+                List<EvaluationResult> results = new ArrayList<>();
+
+                for (EvaluationCase testCase : goldenSet) {
+                        RagContext context = buildContext(
+                                        featureDir,
+                                        testSourceRoot,
+                                        testCase.query,
+                                        topK,
+                                        tokenBudget);
+
+                        List<String> retrievedIds = new ArrayList<>();
+                        for (SourceFile chunk : context.chunks) {
+                                retrievedIds.add(RetrievalMetrics.chunkId(chunk));
+                        }
+
+                        RetrievalMetrics.Metrics metrics = RetrievalMetrics.calculate(
+                                testCase.expectedRelevantChunkIds,
+                                retrievedIds,
+                                topK,
+                                context.injectedTokens,
+                                tokenBudget,
+                                context.corpusTokens);
+
+                        results.add(new EvaluationResult(testCase.query, retrievedIds, metrics));
+                }
+
+                return EvaluationReport.from(results);
+        }
+
         private static List<SourceFile> selectWithinBudget(
                         List<SourceFile> rankedChunks,
                         int topK,
@@ -273,6 +318,106 @@ public final class RagEngine {
                 return Math.max(
                                 1,
                                 file.content.length() / 4);
+        }
+
+
+        public static final class EvaluationCase {
+                public final String query;
+                public final Set<String> expectedRelevantChunkIds;
+
+                public EvaluationCase(String query, Set<String> expectedRelevantChunkIds) {
+                        if (query == null || query.trim().isEmpty()) {
+                                throw new IllegalArgumentException("query must not be blank");
+                        }
+                        if (expectedRelevantChunkIds == null) {
+                                throw new IllegalArgumentException("expectedRelevantChunkIds must not be null");
+                        }
+                        this.query = query;
+                        this.expectedRelevantChunkIds = Collections.unmodifiableSet(
+                                        new LinkedHashSet<>(expectedRelevantChunkIds));
+                }
+        }
+
+        public static final class EvaluationResult {
+                public final String query;
+                public final List<String> retrievedChunkIds;
+                public final RetrievalMetrics.Metrics metrics;
+
+                private EvaluationResult(String query, List<String> retrievedChunkIds,
+                                RetrievalMetrics.Metrics metrics) {
+                        this.query = query;
+                        this.retrievedChunkIds = Collections.unmodifiableList(
+                                        new ArrayList<>(retrievedChunkIds));
+                        this.metrics = metrics;
+                }
+        }
+
+        public static final class EvaluationReport {
+                public final List<EvaluationResult> results;
+                public final double meanPrecisionAtK;
+                public final double meanRecallAtK;
+                public final double meanReciprocalRank;
+                public final double meanTokenBudgetUsagePercent;
+                public final double meanCorpusInjectionPercent;
+                public final int tokenBudgetViolations;
+
+                private EvaluationReport(List<EvaluationResult> results) {
+                        this.results = Collections.unmodifiableList(new ArrayList<>(results));
+                        double p = 0.0, r = 0.0, mrr = 0.0, usage = 0.0, injection = 0.0;
+                        int violations = 0;
+                        for (EvaluationResult result : results) {
+                                p += result.metrics.precisionAtK;
+                                r += result.metrics.recallAtK;
+                                mrr += result.metrics.reciprocalRank;
+                                usage += result.metrics.tokenBudgetUsagePercent;
+                                injection += result.metrics.corpusInjectionPercent;
+                                if (!result.metrics.withinTokenBudget) {
+                                        violations++;
+                                }
+                        }
+                        int n = results.size();
+                        this.meanPrecisionAtK = n == 0 ? 0.0 : p / n;
+                        this.meanRecallAtK = n == 0 ? 0.0 : r / n;
+                        this.meanReciprocalRank = n == 0 ? 0.0 : mrr / n;
+                        this.meanTokenBudgetUsagePercent = n == 0 ? 0.0 : usage / n;
+                        this.meanCorpusInjectionPercent = n == 0 ? 0.0 : injection / n;
+                        this.tokenBudgetViolations = violations;
+                }
+
+                private static EvaluationReport from(List<EvaluationResult> results) {
+                        return new EvaluationReport(results);
+                }
+
+                public String toText() {
+                        StringBuilder out = new StringBuilder();
+                        out.append("=== RAG EVALUATION REPORT ===\n");
+                        out.append("Queries evaluated: ").append(results.size()).append('\n');
+                        out.append(String.format(java.util.Locale.ROOT,
+                                        "Mean Precision@K: %.4f%nMean Recall@K: %.4f%nMRR: %.4f%n",
+                                        meanPrecisionAtK, meanRecallAtK, meanReciprocalRank));
+                        out.append(String.format(java.util.Locale.ROOT,
+                                        "Mean token-budget usage: %.2f%%%nMean corpus injection: %.2f%%%n",
+                                        meanTokenBudgetUsagePercent, meanCorpusInjectionPercent));
+                        out.append("Token-budget violations: ").append(tokenBudgetViolations).append('\n');
+                        for (EvaluationResult result : results) {
+                                out.append("\nQuery: ").append(result.query).append('\n');
+                                out.append(String.format(java.util.Locale.ROOT,
+                                                "  Precision@K=%.4f Recall@K=%.4f MRR=%.4f Tokens=%d/%d%n",
+                                                result.metrics.precisionAtK,
+                                                result.metrics.recallAtK,
+                                                result.metrics.reciprocalRank,
+                                                result.metrics.injectedTokens,
+                                                result.metrics.tokenBudget));
+                                out.append("  Retrieved chunk IDs: ")
+                                                .append(result.retrievedChunkIds).append('\n');
+                        }
+                        return out.toString();
+                }
+
+                @Override
+                public String toString() {
+                        return toText();
+                }
         }
 
         public static final class RagContext {

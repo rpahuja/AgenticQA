@@ -4,12 +4,26 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 
 public final class QueryAnalyzer {
+
+    /**
+     * Function words that carry no retrieval signal. Without filtering,
+     * chunks that happen to contain "the" / "a" (feature texts) outrank
+     * short code chunks that only share the meaningful terms, because
+     * BM25 sums one score per matching query term.
+     */
+    private static final Set<String> STOPWORDS = Set.of(
+            "a", "an", "the", "and", "or", "for", "of", "in", "on", "to",
+            "with", "by", "at", "from", "into", "about", "as", "that",
+            "this", "these", "those", "it", "its", "is", "are", "was",
+            "were", "be", "been", "do", "does", "did", "can", "could",
+            "should", "would", "will", "what", "which", "who", "whom",
+            "how", "when", "where", "why", "find", "get", "please",
+            "me", "my", "our", "your");
 
     private QueryAnalyzer() {
     }
@@ -45,7 +59,7 @@ public final class QueryAnalyzer {
                 extractUniqueTerms(normalizedQuery);
 
         List<String> phrases =
-                extractTwoWordPhrases(normalizedQuery);
+                extractTwoWordPhrases(terms);
 
         Set<String> expandedTerms =
                 new LinkedHashSet<>(terms);
@@ -76,41 +90,49 @@ public final class QueryAnalyzer {
         String[] parts =
                 normalizedQuery.split("\\s+");
 
-        LinkedHashSet<String> unique =
+        LinkedHashSet<String> all =
                 new LinkedHashSet<>();
 
         for (String part : parts) {
             if (!part.isEmpty()) {
-                unique.add(part);
+                all.add(part);
             }
         }
 
-        return new ArrayList<>(unique);
+        List<String> filtered =
+                new ArrayList<>();
+
+        for (String term : all) {
+            if (!STOPWORDS.contains(term)) {
+                filtered.add(term);
+            }
+        }
+
+        if (filtered.isEmpty()) {
+            // Stopword-only prompt ("find the login"): keep the original
+            // terms rather than ranking everything with an empty query.
+            return new ArrayList<>(all);
+        }
+
+        return filtered;
     }
 
     private static List<String> extractTwoWordPhrases(
-            String normalizedQuery) {
+            List<String> terms) {
 
-        if (normalizedQuery == null
-                || normalizedQuery.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        String[] parts =
-                normalizedQuery.split("\\s+");
-
-        if (parts.length < 2) {
+        if (terms == null
+                || terms.size() < 2) {
             return Collections.emptyList();
         }
 
         List<String> phrases = new ArrayList<>();
 
         for (int index = 0;
-             index < parts.length - 1;
+             index < terms.size() - 1;
              index++) {
 
-            String first = parts[index];
-            String second = parts[index + 1];
+            String first = terms.get(index);
+            String second = terms.get(index + 1);
 
             if (first.isEmpty() || second.isEmpty()) {
                 continue;
